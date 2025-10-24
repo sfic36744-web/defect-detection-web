@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Analysis Result - Fabric Defect Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c5530;
+            --secondary-color: #4a7c59;
+            --accent-color: #8fb996;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .result-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin: 2rem auto;
+            border: none;
+        }
+        
+        .status-badge {
+            padding: 0.7rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .status-good {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .status-defect {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .accuracy-badge {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .image-container {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: auto;
+        }
+        
+        .defect-item {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--accent-color);
+        }
+        
+        .defect-type {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .confidence-bar {
+            height: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), var(--secondary-color));
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-microscope me-2"></i>FabricAI Inspector
+            </a>
+            <a href="/" class="btn btn-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Home
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% if error %}
+            <div class="row justify-content-center mt-4">
+                <div class="col-lg-8">
+                    <div class="alert alert-danger d-flex align-items-center" role="alert">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h4 class="alert-heading">Analysis Error</h4>
+                            <p class="mb-0">{{ error }}</p>
+                        </div>
+                    </div>
+                    <div class="text-center mt-4">
+                        <a href="/" class="btn btn-primary">
+                            <i class="fas fa-redo me-2"></i>Try Again
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% elif success %}
+            <div class="result-card">
+                <div class="row align-items-center mb-4">
+                    <div class="col-md-8">
+                        <h2 class="mb-0">Fabric Analysis Result</h2>
+                        <p class="text-muted mb-0">Detailed defect detection report</p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="status-badge {% if result.final_type == 'Good' %}status-good{% else %}status-defect{% endif %}">
+                            {% if result.final_type == 'Good' %}
+                                <i class="fas fa-check-circle me-1"></i> Quality Fabric
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle me-1"></i> Defects Detected
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Accuracy Display -->
+                <div class="text-center mb-4">
+                    <div class="accuracy-badge">
+                        {{ (result.current_accuracy * 100)|round(1) }}%
+                    </div>
+                    <p class="text-muted">Analysis Accuracy</p>
+                </div>
+                
+                <div class="row">
+                    <!-- Images -->
+                    <div class="col-lg-6">
+                        <div class="image-container">
+                            <h5 class="mb-3">
+                                <i class="fas fa-image me-2"></i>Original Fabric
+                            </h5>
+                            <img src="{{ url_for('uploaded_file', filename=uploaded_image) }}" alt="Uploaded Image">
+                        </div>
+                        
+                        {% if result.result_image_path %}
+                        <div class="image-container">
+                            <h5 class="mb-3">
+                                <i class="fas fa-search me-2"></i>Defect Visualization
+                            </h5>
+                            <img src="{{ url_for('result_file', filename=result.result_image_path) }}" alt="Defects Overlay">
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Analysis Details -->
+                    <div class="col-lg-6">
+                        <div class="stats-card">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="stat-value">{{ (result.final_confidence * 100)|round(1) }}%</div>
+                                    <div class="stat-label">Confidence</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-value">{{ result.defect_count }}</div>
+                                    <div class="stat-label">Defects Found</div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-value">{{ result.defect_percentage|round(4) }}%</div>
+                                    <div class="stat-label">Defect Area</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>
+                                <i class="fas fa-tachometer-alt me-2"></i>Detection Confidence
+                            </h5>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: {{ (result.final_confidence * 100)|round(1) }}%;"></div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <small>0%</small>
+                                <small>{{ (result.final_confidence * 100)|round(1) }}%</small>
+                                <small>100%</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>
+                                <i class="fas fa-info-circle me-2"></i>Analysis Details
+                            </h5>
+                            <div class="row">
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Defect Type:</strong> {{ result.final_type }}
+                                </div>
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Analysis Method:</strong> {{ result.fusion_reason }}
+                                </div>
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Processing Time:</strong> {{ result.processing_time|round(2) }}s
+                                </div>
+                                <div class="col-sm-6 mb-2">
+                                    <strong>Analysis Accuracy:</strong> {{ (result.current_accuracy * 100)|round(1) }}%
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h5>
+                                <i class="fas fa-bug me-2"></i>Detected Defects
+                            </h5>
+                            {% for defect in result.defects_info %}
+                                <div class="defect-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <span class="defect-type">Defect #{{ defect.id }}</span>
+                                            <span class="badge bg-secondary ms-2">{{ defect.shape_type }}</span>
+                                        </div>
+                                        <small class="text-muted">{{ defect.defect_percentage|round(4) }}%</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <small>
+                                            <i class="fas fa-vector-square me-1"></i>Area: {{ defect.area }} pixels |
+                                            <i class="fas fa-crosshairs me-1"></i>Position: ({{ defect.center[0] }}, {{ defect.center[1] }})
+                                        </small>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-3 text-muted">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <p>No defects detected</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if result.report_path %}
+                                <a href="{{ url_for('result_file', filename=result.report_path) }}" class="btn btn-success" target="_blank">
+                                    <i class="fas fa-download me-2"></i>Download Full Report
+                                </a>
+                            {% endif %}
+                            <a href="/" class="btn btn-primary">
+                                <i class="fas fa-redo me-2"></i>Analyze Another Image
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <footer class="bg-dark text-white text-center py-3 mt-5">
+        <div class="container">
+            <p>&copy; 2025 FabricAI Inspector. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
