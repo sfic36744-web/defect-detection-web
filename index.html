@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fabric Defect Detection System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c5530;
+            --secondary-color: #4a7c59;
+            --accent-color: #8fb996;
+            --light-bg: #f8f9fa;
+            --dark-text: #2c3e50;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--dark-text);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+        
+        .hero-section {
+            background: linear-gradient(rgba(44, 85, 48, 0.8), rgba(44, 85, 48, 0.9)), url('https://images.unsplash.com/photo-1558769132-cb25c5d11e85?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 5rem 0;
+            border-radius: 0 0 30px 30px;
+            margin-bottom: 3rem;
+        }
+        
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border: none;
+            transition: transform 0.3s ease;
+        }
+        
+        .upload-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .upload-area {
+            border: 3px dashed var(--accent-color);
+            border-radius: 15px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background-color: rgba(143, 185, 150, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            background-color: rgba(143, 185, 150, 0.2);
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: var(--secondary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            padding: 0.8rem 2rem;
+            font-weight: 600;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+            transform: scale(1.05);
+        }
+        
+        .camera-section {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: none;
+        }
+        
+        .camera-preview {
+            width: 100%;
+            max-width: 500px;
+            height: 300px;
+            background-color: #000;
+            border-radius: 10px;
+            margin: 0 auto 1rem;
+            overflow: hidden;
+        }
+        
+        .camera-preview video,
+        .camera-preview canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .captured-image {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 10px;
+            margin: 1rem auto;
+            display: none;
+        }
+        
+        .camera-controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        
+        .btn-camera {
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-capture {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        
+        .btn-capture:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+            transform: scale(1.05);
+        }
+        
+        .btn-switch {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-switch:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+        
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .feature-card {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 15px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 2rem 0;
+            margin-top: 4rem;
+        }
+        
+        .tab-content {
+            margin-top: 2rem;
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--dark-text);
+            font-weight: 600;
+            padding: 1rem 2rem;
+            border: none;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            background: none;
+            border: none;
+            border-bottom: 3px solid var(--primary-color);
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border: none;
+            border-bottom: 3px solid var(--accent-color);
+        }
+        
+        .camera-status {
+            text-align: center;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-microscope me-2"></i>FabricAI Inspector
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/detect">Detect Defects</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container text-center">
+            <h1 class="display-4 fw-bold mb-4">Advanced Fabric Defect Detection</h1>
+            <p class="lead mb-4">AI-powered inspection system for identifying holes, vertical and horizontal defects in textile materials</p>
+            <a href="#upload" class="btn btn-light btn-lg px-4 py-2">
+                <i class="fas fa-rocket me-2"></i>Start Inspection
+            </a>
+        </div>
+    </section>
+
+    <!-- Upload & Camera Tabs -->
+    <div class="container" id="upload">
+        <div class="upload-card">
+            <h2 class="text-center mb-4">
+                <i class="fas fa-camera me-2"></i>Inspect Fabric
+            </h2>
+            
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs nav-justified" id="inspectionTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                        <i class="fas fa-upload me-2"></i>Upload Image
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="camera-tab" data-bs-toggle="tab" data-bs-target="#camera-pane" type="button" role="tab">
+                        <i class="fas fa-camera me-2"></i>Use Camera
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tabs Content -->
+            <div class="tab-content" id="inspectionTabsContent">
+                <!-- Upload Tab -->
+                <div class="tab-pane fade show active" id="upload-pane" role="tabpanel" tabindex="0">
+                    <form action="/detect" method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <div class="upload-area" id="dropZone">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h4>Drag & Drop your fabric image here</h4>
+                            <p class="text-muted">or click to browse files</p>
+                            <input type="file" name="file" id="fileInput" class="d-none" accept=".png,.jpg,.jpeg,.bmp,.tiff" required>
+                            <button type="button" class="btn btn-outline-secondary mt-3" onclick="document.getElementById('fileInput').click()">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                        </div>
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">
+                                <i class="fas fa-search me-2"></i>Analyze Fabric
+                            </button>
+                        </div>
+                    </form>
+                    <p class="text-center mt-3 text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Supported formats: PNG, JPG, JPEG, BMP, TIFF | Max size: 16MB
+                    </p>
+                    
+                    <!-- File Info -->
+                    <div id="fileInfo" class="mt-3 text-center" style="display: none;">
+                        <div class="alert alert-info d-inline-flex align-items-center">
+                            <i class="fas fa-file-image me-2"></i>
+                            <span id="fileName"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera Tab -->
+                <div class="tab-pane fade" id="camera-pane" role="tabpanel" tabindex="0">
+                    <div class="camera-section text-center">
+                        <div class="camera-preview">
+                            <video id="cameraVideo" autoplay playsinline style="display: none;"></video>
+                            <canvas id="cameraCanvas" style="display: none;"></canvas>
+                            <div id="cameraPlaceholder" class="d-flex align-items-center justify-content-center h-100 text-white">
+                                <div>
+                                    <i class="fas fa-camera fa-3x mb-3"></i>
+                                    <p>Camera not active</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="cameraStatus" class="camera-status"></div>
+                        
+                        <img id="capturedImage" class="captured-image" alt="Captured Image">
+                        
+                        <div class="camera-controls">
+                            <button type="button" class="btn btn-primary btn-camera" id="startCamera">
+                                <i class="fas fa-play me-2"></i>Start Camera
+                            </button>
+                            <button type="button" class="btn btn-capture btn-camera" id="captureBtn" disabled>
+                                <i class="fas fa-camera me-2"></i>Capture Image
+                            </button>
+                            <button type="button" class="btn btn-switch btn-camera" id="switchCamera" disabled>
+                                <i class="fas fa-sync me-2"></i>Switch Camera
+                            </button>
+                            <button type="button" class="btn btn-warning btn-camera" id="retakeBtn" style="display: none;">
+                                <i class="fas fa-redo me-2"></i>Retake
+                            </button>
+                        </div>
+                        
+                        <form action="/detect" method="POST" enctype="multipart/form-data" id="cameraForm" style="display: none;">
+                            <input type="hidden" name="file" id="cameraImageData">
+                            <div class="text-center mt-4">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-search me-2"></i>Analyze Captured Image
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Tip:</strong> Ensure good lighting and place the fabric on a flat surface for best results.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Section -->
+        <div class="row mt-5">
+            <div class="col-12 text-center mb-5">
+                <h2>Advanced Defect Detection Features</h2>
+                <p class="lead">Our AI system identifies various types of fabric defects with high precision</p>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-cut"></i>
+                    </div>
+                    <h5>Hole Detection</h5>
+                    <p class="text-muted">Identify circular or irregular holes in fabric materials with precise location and size measurement.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-arrows-alt-v"></i>
+                    </div>
+                    <h5>Vertical Defects</h5>
+                    <p class="text-muted">Detect vertical line defects, tears, or inconsistencies along the warp direction of the fabric.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-arrows-alt-h"></i>
+                    </div>
+                    <h5>Horizontal Defects</h5>
+                    <p class="text-muted">Identify horizontal imperfections, weft issues, or cross-directional flaws in textile materials.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-microscope me-2"></i>FabricAI Inspector</h5>
+                    <p>Advanced AI-powered defect detection system for textile quality control.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p>&copy; 2025 FabricAI Inspector. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Camera functionality
+        class CameraHandler {
+            constructor() {
+                this.video = document.getElementById('cameraVideo');
+                this.canvas = document.getElementById('cameraCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.stream = null;
+                this.facingMode = 'environment'; // Start with rear camera
+                this.isCameraActive = false;
+                
+                this.initializeEventListeners();
+            }
+            
+            initializeEventListeners() {
+                document.getElementById('startCamera').addEventListener('click', () => this.startCamera());
+                document.getElementById('captureBtn').addEventListener('click', () => this.captureImage());
+                document.getElementById('switchCamera').addEventListener('click', () => this.switchCamera());
+                document.getElementById('retakeBtn').addEventListener('click', () => this.retakePhoto());
+            }
+            
+            async startCamera() {
+                try {
+                    this.showStatus('Starting camera...', 'info');
+                    
+                    const constraints = {
+                        video: {
+                            facingMode: this.facingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.video.srcObject = this.stream;
+                    this.video.style.display = 'block';
+                    document.getElementById('cameraPlaceholder').style.display = 'none';
+                    
+                    await this.video.play();
+                    
+                    this.isCameraActive = true;
+                    this.updateCameraControls(true);
+                    this.showStatus('Camera is ready! Click "Capture Image" to take a photo.', 'success');
+                    
+                } catch (error) {
+                    console.error('Error starting camera:', error);
+                    this.showStatus('Cannot access camera. Please ensure you have granted camera permissions and try again.', 'error');
+                }
+            }
+            
+            captureImage() {
+                if (!this.isCameraActive) return;
+                
+                // Set canvas dimensions to match video
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+                
+                // Draw current video frame to canvas
+                this.ctx.drawImage(this.video, 0, 0);
+                
+                // Convert canvas to data URL
+                const imageData = this.canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Display captured image
+                const capturedImage = document.getElementById('capturedImage');
+                capturedImage.src = imageData;
+                capturedImage.style.display = 'block';
+                
+                // Hide video, show captured image
+                this.video.style.display = 'none';
+                document.getElementById('cameraPlaceholder').style.display = 'none';
+                
+                // Set image data for form submission
+                document.getElementById('cameraImageData').value = imageData;
+                
+                // Show analysis form
+                document.getElementById('cameraForm').style.display = 'block';
+                
+                // Update controls
+                document.getElementById('captureBtn').style.display = 'none';
+                document.getElementById('retakeBtn').style.display = 'block';
+                document.getElementById('switchCamera').disabled = true;
+                
+                this.showStatus('Image captured successfully! Click "Analyze Captured Image" to proceed.', 'success');
+            }
+            
+            async switchCamera() {
+                if (!this.isCameraActive) return;
+                
+                // Stop current stream
+                this.stopCamera();
+                
+                // Switch between front and back camera
+                this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
+                
+                // Restart camera with new facing mode
+                await this.startCamera();
+            }
+            
+            retakePhoto() {
+                // Hide captured image, show video
+                document.getElementById('capturedImage').style.display = 'none';
+                this.video.style.display = 'block';
+                
+                // Hide analysis form
+                document.getElementById('cameraForm').style.display = 'none';
+                
+                // Update controls
+                document.getElementById('captureBtn').style.display = 'block';
+                document.getElementById('retakeBtn').style.display = 'none';
+                document.getElementById('switchCamera').disabled = false;
+                
+                this.showStatus('Camera is ready for another capture.', 'info');
+            }
+            
+            stopCamera() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                this.isCameraActive = false;
+                this.updateCameraControls(false);
+            }
+            
+            updateCameraControls(isActive) {
+                document.getElementById('captureBtn').disabled = !isActive;
+                document.getElementById('switchCamera').disabled = !isActive;
+                document.getElementById('startCamera').style.display = isActive ? 'none' : 'block';
+            }
+            
+            showStatus(message, type) {
+                const statusElement = document.getElementById('cameraStatus');
+                statusElement.textContent = message;
+                statusElement.className = `camera-status status-${type}`;
+                statusElement.style.display = 'block';
+                
+                // Auto-hide success messages after 5 seconds
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 5000);
+                }
+            }
+        }
+        
+        // File upload handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                const fileName = this.files[0].name;
+                document.getElementById('fileName').textContent = fileName;
+                document.getElementById('fileInfo').style.display = 'block';
+                
+                // Update drop zone text
+                document.querySelector('#dropZone h4').textContent = 'File selected:';
+                document.querySelector('#dropZone p').textContent = fileName;
+            }
+        });
+        
+        // Drag and drop functionality
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropZone.style.backgroundColor = 'rgba(143, 185, 150, 0.3)';
+            dropZone.style.borderColor = 'var(--primary-color)';
+        }
+        
+        function unhighlight() {
+            dropZone.style.backgroundColor = 'rgba(143, 185, 150, 0.1)';
+            dropZone.style.borderColor = 'var(--accent-color)';
+        }
+        
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            document.getElementById('fileInput').files = files;
+            
+            if (files.length > 0) {
+                const fileName = files[0].name;
+                document.getElementById('fileName').textContent = fileName;
+                document.getElementById('fileInfo').style.display = 'block';
+                
+                // Update drop zone text
+                document.querySelector('#dropZone h4').textContent = 'File selected:';
+                document.querySelector('#dropZone p').textContent = fileName;
+            }
+        }
+        
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...';
+            analyzeBtn.disabled = true;
+        });
+        
+        document.getElementById('cameraForm').addEventListener('submit', function() {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Analyzing...';
+            submitBtn.disabled = true;
+        });
+        
+        // Stop camera when switching tabs
+        document.getElementById('camera-tab').addEventListener('click', function() {
+            // Camera tab activated
+        });
+        
+        document.getElementById('upload-tab').addEventListener('click', function() {
+            // Stop camera when switching to upload tab
+            if (window.cameraHandler) {
+                window.cameraHandler.stopCamera();
+            }
+        });
+        
+        // Initialize camera handler when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            window.cameraHandler = new CameraHandler();
+        });
+    </script>
+</body>
+</html>
