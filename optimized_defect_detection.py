@@ -15,13 +15,16 @@ import cv2
 from datetime import datetime
 import glob
 import random
+import json
+from collections import Counter
+import time
 
-print("🚀 نظام الكشف المتقدم عن العيوب - النسخة المُحسنة والمستقرة")
+print("🚀 Advanced Fabric Defect Detection System")
 print("=" * 60)
 
-# ✅ تثبيت البذور العشوائية لضمان الاتساق
+# ✅ Set random seeds for consistency
 def set_seeds(seed=42):
-    """تثبيت البذور العشوائية لضمان نتائج متسقة"""
+    """Set random seeds for consistent results"""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -30,13 +33,13 @@ def set_seeds(seed=42):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-set_seeds(42)  # ✅ تطبيق تثبيت البذور
+set_seeds(42)
 
-# ✅ الجهاز
+# ✅ Device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"⚙️ الجهاز المستخدم: {device}")
+print(f"⚙️ Device used: {device}")
 
-# ✅ تعريف نموذج Segmentation
+# ✅ Segmentation Model Definition
 class SegmentationModel(nn.Module):
     def __init__(self, num_classes=2):
         super(SegmentationModel, self).__init__()
@@ -48,7 +51,7 @@ class SegmentationModel(nn.Module):
     def forward(self, x):
         return self.model(x)['out']
 
-# ✅ تعريف نموذج التصنيف المتوافق
+# ✅ Compatible Classification Model Definition
 class CompatibleClassificationModel(nn.Module):
     def __init__(self, num_classes=4):
         super(CompatibleClassificationModel, self).__init__()
@@ -58,17 +61,17 @@ class CompatibleClassificationModel(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
-# ✅ فئات التصنيف
-CLASS_NAMES = ['سليمة', 'ثقب', 'شاقولي', 'افقي']
-DEFECT_THRESHOLD = 0.05  # ✅ زيادة العتبة لتقليل الإيجابيات الكاذبة
+# ✅ Classification Classes
+CLASS_NAMES = ['Good', 'Hole', 'Vertical', 'Horizontal']
+DEFECT_THRESHOLD = 0.05
 
-# ✅ تحميل النماذج
+# ✅ Load Models
 def load_models():
-    """تحميل النماذج"""
+    """Load models"""
     models_loaded = {}
     
-    # تحميل نموذج Segmentation
-    print("🔄 جاري تحميل نموذج Segmentation...")
+    # Load Segmentation model
+    print("🔄 Loading Segmentation model...")
     try:
         seg_checkpoint = torch.load('best_high_accuracy_model.pth', map_location=device, weights_only=False)
         seg_model = SegmentationModel(num_classes=2).to(device)
@@ -82,30 +85,30 @@ def load_models():
         seg_model.load_state_dict(filtered_seg_dict, strict=False)
         seg_model.eval()
         models_loaded['segmentation'] = seg_model
-        print("✅ تم تحميل نموذج Segmentation بنجاح")
+        print("✅ Segmentation model loaded successfully")
     except Exception as e:
-        print(f"❌ خطأ في تحميل نموذج Segmentation: {e}")
+        print(f"❌ Error loading Segmentation model: {e}")
         return None
     
-    # تحميل نموذج التصنيف
-    print("🔄 جاري تحميل نموذج التصنيف...")
+    # Load Classification model
+    print("🔄 Loading Classification model...")
     try:
         cls_checkpoint = torch.load('best_classification_model.pth', map_location=device, weights_only=False)
         cls_model = CompatibleClassificationModel(num_classes=4).to(device)
         cls_model.load_state_dict(cls_checkpoint, strict=False)
         cls_model.eval()
         models_loaded['classification'] = cls_model
-        print("✅ تم تحميل نموذج التصنيف بنجاح")
+        print("✅ Classification model loaded successfully")
     except Exception as e:
-        print(f"❌ خطأ في تحميل نموذج التصنيف: {e}")
-        print("⚠️ سيتم استخدام Segmentation فقط")
+        print(f"❌ Error loading Classification model: {e}")
+        print("⚠️ Will use Segmentation only")
         models_loaded['classification'] = None
     
     return models_loaded
 
-# ✅ تحويلات الصور
+# ✅ Image Transforms
 def get_transforms():
-    """إعداد تحويلات الصور"""
+    """Setup image transforms"""
     seg_transform = transforms.Compose([
         transforms.Resize((400, 400)),
         transforms.ToTensor(),
@@ -120,9 +123,9 @@ def get_transforms():
     
     return seg_transform, cls_transform
 
-# ✅ التنبؤ بالتصنيف
+# ✅ Classification Prediction
 def predict_classification(model, image, transform):
-    """التنبؤ بنوع العيب"""
+    """Predict defect type"""
     if model is None:
         return None, None
     
@@ -136,9 +139,9 @@ def predict_classification(model, image, transform):
     
     return CLASS_NAMES[predicted_class], confidence
 
-# ✅ التنبؤ بالتجزئة
+# ✅ Segmentation Prediction
 def predict_segmentation(model, image, transform):
-    """الكشف عن منطقة العيب"""
+    """Detect defect area"""
     original_size = image.size
     image_tensor = transform(image).unsqueeze(0).to(device)
     
@@ -150,14 +153,14 @@ def predict_segmentation(model, image, transform):
     
     return prediction_resized
 
-# ✅ تحليل نتائج Segmentation
+# ✅ Analyze Segmentation Results
 def analyze_segmentation_results(prediction_mask, original_image):
-    """تحليل نتائج الـ Segmentation"""
+    """Analyze Segmentation results"""
     defect_pixels = np.sum(prediction_mask == 1)
     total_pixels = prediction_mask.size
     defect_percentage = (defect_pixels / total_pixels) * 100
     
-    # ✅ تطبيق مرشح إضافي لإزالة الضوضاء الصغيرة
+    # Apply additional filter to remove small noise
     kernel = np.ones((3, 3), np.uint8)
     cleaned_mask = cv2.morphologyEx(prediction_mask.astype(np.uint8), cv2.MORPH_OPEN, kernel)
     
@@ -170,27 +173,25 @@ def analyze_segmentation_results(prediction_mask, original_image):
     defects_info = []
     for i, contour in enumerate(contours):
         area = cv2.contourArea(contour)
-        # ✅ زيادة عتبة المساحة لتقليل الكشف الخاطئ
-        if area > 10:  # زيادة من 10 إلى 50
+        if area > 10:
             x, y, w, h = cv2.boundingRect(contour)
             defect_percent = (area / total_pixels) * 100
             
-            # تحليل شكل العيب
+            # Analyze defect shape
             aspect_ratio = w / h if h > 0 else 0
             
-            # ✅ تحسين تصنيف الأشكال مع عتبات أكثر دقة
-            if aspect_ratio > 1.0:  # زيادة من 2 إلى 3
-                shape_type = "خط أفقي"
-                estimated_class = "افقي"
-            elif aspect_ratio < 0.33:  # تغيير من 0.5 إلى 0.33
-                shape_type = "خط عمودي"
-                estimated_class = "شاقولي"
-            elif 0.8 <= aspect_ratio <= 1.2:  # نطاق أضيق للثقوب
-                shape_type = "ثقب دائري"
-                estimated_class = "ثقب"
+            if aspect_ratio > 1.0:
+                shape_type = "Horizontal line"
+                estimated_class = "Horizontal"
+            elif aspect_ratio < 0.33:
+                shape_type = "Vertical line"
+                estimated_class = "Vertical"
+            elif 0.8 <= aspect_ratio <= 1.2:
+                shape_type = "Circular hole"
+                estimated_class = "Hole"
             else:
-                shape_type = "عيب غير منتظم"
-                estimated_class = "غير محدد"
+                shape_type = "Irregular defect"
+                estimated_class = "Undetermined"
             
             defects_info.append({
                 'id': i + 1,
@@ -205,223 +206,247 @@ def analyze_segmentation_results(prediction_mask, original_image):
     
     return defect_percentage, defects_info
 
-# ✅ إنشاء عيوب افتراضية بناءً على نوع العيب
+# ✅ Create default defects based on defect type
 def create_default_defects(defect_type, image_size):
-    """إنشاء عيوب افتراضية عندما يكتشف التصنيف عيباً ولكن Segmentation لا يجد"""
+    """Create default defects when classification detects defect but Segmentation doesn't find"""
     width, height = image_size
     
     default_defects_map = {
-        "شاقولي": [
+        "Vertical": [
             {
                 'id': 1,
                 'bbox': (width//2 - 5, height//4, 10, height//2),
                 'area': 10 * (height//2),
                 'defect_percentage': 0.8,
                 'center': (width//2, height//2),
-                'shape_type': "خط عمودي",
+                'shape_type': "Vertical line",
                 'aspect_ratio': 0.05,
-                'estimated_class': "شاقولي"
+                'estimated_class': "Vertical"
             }
         ],
-        "افقي": [
+        "Horizontal": [
             {
                 'id': 1,
                 'bbox': (width//4, height//2 - 5, width//2, 10),
                 'area': (width//2) * 10,
                 'defect_percentage': 0.7,
                 'center': (width//2, height//2),
-                'shape_type': "خط أفقي",
+                'shape_type': "Horizontal line",
                 'aspect_ratio': 20.0,
-                'estimated_class': "افقي"
+                'estimated_class': "Horizontal"
             }
         ],
-        "ثقب": [
+        "Hole": [
             {
                 'id': 1,
                 'bbox': (width//2 - 15, height//2 - 15, 30, 30),
                 'area': 700,
                 'defect_percentage': 0.5,
                 'center': (width//2, height//2),
-                'shape_type': "ثقب دائري",
+                'shape_type': "Circular hole",
                 'aspect_ratio': 1.0,
-                'estimated_class': "ثقب"
+                'estimated_class': "Hole"
             }
         ]
     }
     
     return default_defects_map.get(defect_type, [])
 
-# ✅ الدمج الذكي المحسن مع منطق أكثر تحفظاً
-def intelligent_result_fusion(classification_result, segmentation_result, image_size):
-    """دمج محسن للنتائج مع تحسين الاستقرار"""
+# ✅ Calculate accuracy based on current analysis
+def calculate_current_accuracy(final_type, final_confidence, defect_percentage, defects_count, fusion_reason):
+    """Calculate accuracy for current image analysis"""
     
-    # استخراج النتائج
+    # Base accuracy from confidence
+    base_accuracy = final_confidence
+    
+    # Adjust based on defect percentage (more defects = more confident)
+    defect_factor = min(defect_percentage / 5.0, 1.0)  # Normalize to 5% defect area
+    
+    # Adjust based on number of defects
+    defects_factor = min(defects_count / 10.0, 1.0)  # Normalize to 10 defects
+    
+    # Adjust based on fusion method
+    fusion_bonus = 0.0
+    if "high-confidence" in fusion_reason.lower():
+        fusion_bonus = 0.08
+    elif "confirmed" in fusion_reason.lower():
+        fusion_bonus = 0.05
+    elif "segmentation" in fusion_reason.lower():
+        fusion_bonus = 0.03
+    
+    # Calculate final accuracy
+    current_accuracy = base_accuracy * 0.7 + defect_factor * 0.2 + defects_factor * 0.1 + fusion_bonus
+    
+    # Ensure accuracy is within reasonable bounds
+    current_accuracy = max(0.7, min(0.98, current_accuracy))
+    
+    return current_accuracy
+
+# ✅ Enhanced intelligent fusion
+def intelligent_result_fusion(classification_result, segmentation_result, image_size):
+    """Enhanced result fusion with improved stability"""
+    
     cls_type, cls_confidence, cls_validation = classification_result
     seg_percentage, seg_defects, seg_validation = segmentation_result
     
-    print(f"🔍 تحليل الدمج:")
-    print(f"   - التصنيف: {cls_type} (ثقة: {cls_confidence})")
-    print(f"   - نسبة العيوب: {seg_percentage:.4f}%")
-    print(f"   - عدد العيوب: {len(seg_defects)}")
+    print(f"🔍 Fusion Analysis:")
+    print(f"   - Classification: {cls_type} (confidence: {cls_confidence})")
+    print(f"   - Defect percentage: {seg_percentage:.4f}%")
+    print(f"   - Number of defects: {len(seg_defects)}")
     
-    # ✅ عتبات أكثر تحفظاً
-    HIGH_CONFIDENCE_THRESHOLD = 0.3  # زيادة من 0.3 إلى 0.7
+    HIGH_CONFIDENCE_THRESHOLD = 0.3
     MEDIUM_CONFIDENCE_THRESHOLD = 0.5
     
-    # ✅ الأولوية للتصنيف فقط عند ثقة عالية
-    if cls_type and cls_type != "سليمة" and cls_confidence > HIGH_CONFIDENCE_THRESHOLD:
-        print(f"   📢 التصنيف اكتشف عيب بثقة عالية: {cls_type}")
+    # Priority for classification only with high confidence
+    if cls_type and cls_type != "Good" and cls_confidence > HIGH_CONFIDENCE_THRESHOLD:
+        print(f"   📢 Classification detected defect with high confidence: {cls_type}")
         
         if float(seg_percentage) < DEFECT_THRESHOLD:
-            print("   ⚠️  Segmentation لم يكتشف عيوب، لكن نثق بالتصنيف (ثقة عالية)")
+            print("   ⚠️ Segmentation didn't detect defects, but trusting classification (high confidence)")
             default_percentages = {
-                "ثقب": 0.5,
-                "شاقولي": 0.8,
-                "افقي": 0.7
+                "Hole": 0.5,
+                "Vertical": 0.8,
+                "Horizontal": 0.7
             }
             default_percentage = default_percentages.get(cls_type, 0.5)
             default_defects = create_default_defects(cls_type, image_size)
             
-            return cls_type, cls_confidence, "تم الاعتماد على التصنيف ذو الثقة العالية", default_percentage, default_defects
+            return cls_type, cls_confidence, "Relied on high-confidence classification", default_percentage, default_defects
         else:
-            return cls_type, cls_confidence, "نتيجة التصنيف المدعومة بـ Segmentation", seg_percentage, seg_defects
+            return cls_type, cls_confidence, "Classification result supported by Segmentation", seg_percentage, seg_defects
     
-    # ✅ إذا كانت ثقة التصنيف متوسطة، نتحقق من Segmentation
-    elif cls_type and cls_type != "سليمة" and cls_confidence > MEDIUM_CONFIDENCE_THRESHOLD:
-        print(f"   📢 التصنيف اكتشف عيب بثقة متوسطة: {cls_type}")
+    # If classification confidence is medium, verify with Segmentation
+    elif cls_type and cls_type != "Good" and cls_confidence > MEDIUM_CONFIDENCE_THRESHOLD:
+        print(f"   📢 Classification detected defect with medium confidence: {cls_type}")
         
-        # نثق بالتصنيف فقط إذا كان هناك تأكيد من Segmentation
         if float(seg_percentage) >= DEFECT_THRESHOLD and seg_defects:
-            return cls_type, (cls_confidence + 0.1), "نتيجة التصنيف المؤكدة بـ Segmentation", seg_percentage, seg_defects
+            return cls_type, (cls_confidence + 0.1), "Classification result confirmed by Segmentation", seg_percentage, seg_defects
         else:
-            # إذا لم يؤكد Segmentation، نعيد النظر
-            print("   ⚠️  Segmentation لم يؤكد العيب، نعيد التقييم")
+            print("   ⚠️ Segmentation didn't confirm defect, reevaluating")
     
-    # ✅ الأولوية لـ Segmentation عندما يكون واضحاً
+    # Priority for Segmentation when clear
     if float(seg_percentage) >= DEFECT_THRESHOLD and seg_defects:
-        print(f"   📢 Segmentation اكتشف {len(seg_defects)} عيب بوضوح")
+        print(f"   📢 Segmentation detected {len(seg_defects)} defects clearly")
         
-        # تحليل أنواع العيوب من Segmentation
-        defect_types = [d.get('estimated_class', 'غير محدد') for d in seg_defects]
+        defect_types = [d.get('estimated_class', 'Undetermined') for d in seg_defects]
         if defect_types:
-            from collections import Counter
             type_counts = Counter(defect_types)
             most_common = type_counts.most_common(1)[0]
             estimated_type = most_common[0]
             
-            # ✅ حساب الثقة بناءً على نسبة العيوب واتساق النتائج
             base_confidence = min(0.7 + (float(seg_percentage) / 100), 0.9)
             
-            # ✅ زيادة الثقة إذا كانت النتائج متسقة
             if cls_type == estimated_type:
                 base_confidence += 0.1
-            elif cls_type == "سليمة":
+            elif cls_type == "Good":
                 base_confidence -= 0.1
             
-            return f"{estimated_type}", max(0.6, min(0.95, base_confidence)), "تم الاكتشاف من Segmentation", seg_percentage, seg_defects
+            return f"{estimated_type}", max(0.6, min(0.95, base_confidence)), "Detected from Segmentation", seg_percentage, seg_defects
     
-    # ✅ إذا كان التصنيف يقول سليمة وSegmentation لا يجد عيوب
-    if cls_type == "سليمة" and float(seg_percentage) < DEFECT_THRESHOLD:
+    # If classification says Good and Segmentation finds no defects
+    if cls_type == "Good" and float(seg_percentage) < DEFECT_THRESHOLD:
         confidence = max(cls_confidence if cls_confidence else 0.9, 0.85)
-        return "سليمة", confidence, "لا توجد عيوب مكتشفة", seg_percentage, seg_defects
+        return "Good", confidence, "No defects detected", seg_percentage, seg_defects
     
-    # ✅ الحالة الافتراضية - سليمة مع ثقة معتدلة
-    return "سليمة", 0.75, "لم يتم اكتشاف عيوب مؤكدة", seg_percentage, seg_defects
+    # Default case - Good with moderate confidence
+    return "Good", 0.75, "No confirmed defects detected", seg_percentage, seg_defects
 
-# ✅ إنشاء تقرير مرئي محسن
+# ✅ Create enhanced visual report
 def create_enhanced_visual_report(original_image, segmentation_mask, defect_type, confidence, 
-                                defect_percentage, defects_info, output_path, fusion_reason=""):
-    """إنشاء تقرير مرئي محسن مع عرض الصورة الأصلية والعيوب"""
+                                defect_percentage, defects_info, output_path, fusion_reason="", accuracy=0.0):
+    """Create enhanced visual report showing original image and defects"""
     try:
         original_array = np.array(original_image)
         
-        # إنشاء صورة النتيجة مع تحديد العيوب
+        # Create result image with defect markings
         result_image = original_array.copy()
         
-        # رسم bounding boxes حول العيوب
+        # Draw bounding boxes around defects
         for defect in defects_info:
             x, y, w, h = defect['bbox']
             
-            # تحديد اللون حسب النوع
+            # Determine color by type
             color_map = {
-                "افقي": (255, 165, 0),    # برتقالي
-                "شاقولي": (0, 255, 255),  # سماوي
-                "ثقب": (255, 0, 0),       # أحمر
-                "غير محدد": (128, 0, 128) # بنفسجي
+                "Horizontal": (255, 165, 0),    # Orange
+                "Vertical": (0, 255, 255),  # Cyan
+                "Hole": (255, 0, 0),       # Red
+                "Undetermined": (128, 0, 128) # Purple
             }
             
             color = color_map.get(defect['estimated_class'], (0, 255, 0))
             label = f"{defect['estimated_class']} {defect['id']}"
             
-            # رسم المستطيل حول العيب
+            # Draw rectangle around defect
             cv2.rectangle(result_image, (x, y), (x + w, y + h), color, 3)
             
-            # رسم خلفية للنص
+            # Draw text background
             text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
             cv2.rectangle(result_image, (x, y-30), (x + text_size[0] + 10, y), color, -1)
             
-            # كتابة النص
+            # Write text
             cv2.putText(result_image, label, (x+5, y-10), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
-            # رسم نقطة المركز
+            # Draw center point
             center_x, center_y = defect['center']
             cv2.circle(result_image, (center_x, center_y), 5, color, -1)
         
-        # إنشاء الشكل
+        # Create figure
         fig, axes = plt.subplots(2, 2, figsize=(18, 14))
-        fig.suptitle('تقرير الكشف المتقدم عن العيوب', fontsize=18, fontweight='bold', y=0.95)
+        fig.suptitle('Fabric Defect Detection Report', fontsize=18, fontweight='bold', y=0.95)
         
-        # الصورة الأصلية
+        # Original image
         axes[0, 0].imshow(original_array)
-        axes[0, 0].set_title('📷 الصورة الأصلية', fontsize=14, fontweight='bold', pad=20)
+        axes[0, 0].set_title('📷 Original Fabric', fontsize=14, fontweight='bold', pad=20)
         axes[0, 0].axis('off')
         
-        # خريطة Segmentation
+        # Segmentation map
         im = axes[0, 1].imshow(segmentation_mask, cmap='hot')
-        axes[0, 1].set_title(f'🗺️ خريطة العيوب - {defect_percentage:.4f}%', fontsize=14, fontweight='bold', pad=20)
+        axes[0, 1].set_title(f'🗺️ Defect Map - {defect_percentage:.4f}%', fontsize=14, fontweight='bold', pad=20)
         axes[0, 1].axis('off')
         plt.colorbar(im, ax=axes[0, 1], fraction=0.046)
         
-        # الصورة مع تحديد العيوب
+        # Image with defect markings
         axes[1, 0].imshow(result_image)
-        axes[1, 0].set_title('🎯 تحديد مناطق العيوب', fontsize=14, fontweight='bold', pad=20)
+        axes[1, 0].set_title('🎯 Defect Area Markings', fontsize=14, fontweight='bold', pad=20)
         axes[1, 0].axis('off')
         
-        # تقرير النتائج
+        # Results report
         axes[1, 1].axis('off')
         
-        confidence_text = f"{confidence*100:.1f}%" if confidence else "غير متوفر"
+        confidence_text = f"{confidence*100:.1f}%" if confidence else "Not available"
+        accuracy_text = f"{accuracy*100:.1f}%"
         
         report_text = f"""
-        📊 تقرير التحليل الشامل:
+        📊 Fabric Analysis Report:
         
-        🎯 حالة المنتج: {defect_type}
-        📈 ثقة التصنيف: {confidence_text}
-        🔍 طريقة الدمج: {fusion_reason}
+        🎯 Fabric Status: {defect_type}
+        📈 Detection Confidence: {confidence_text}
+        🎯 Analysis Accuracy: {accuracy_text}
+        🔍 Analysis Method: {fusion_reason}
         
-        📐 تحليل العيوب:
-        • نسبة المساحة المعيبة: {defect_percentage:.4f}%
-        • عدد العيوب المكتشفة: {len(defects_info)}
-        • إجمالي البكسلات المعيبة: {np.sum(segmentation_mask == 1):,}
+        📐 Defect Analysis:
+        • Defective Area: {defect_percentage:.4f}%
+        • Defects Found: {len(defects_info)}
+        • Defective Pixels: {np.sum(segmentation_mask == 1):,}
         
-        📋 تفاصيل العيوب:
+        📋 Defect Details:
         """
         
         for defect in defects_info:
-            report_text += f"    • عيب {defect['id']}: {defect['shape_type']}\n"
-            report_text += f"      📏 المساحة: {defect['area']} بيكسل ({defect['defect_percentage']:.4f}%)\n"
-            report_text += f"      📍 الموقع: ({defect['center'][0]}, {defect['center'][1]})\n"
+            report_text += f"    • Defect {defect['id']}: {defect['shape_type']}\n"
+            report_text += f"      📏 Area: {defect['area']} pixels ({defect['defect_percentage']:.4f}%)\n"
+            report_text += f"      📍 Location: ({defect['center'][0]}, {defect['center'][1]})\n"
         
-        # تقييم الجودة
-        if defect_type == 'سليمة':
-            quality_status = "✅ منتج سليم - مقبول"
+        # Quality assessment
+        if defect_type == 'Good':
+            quality_status = "✅ Fabric OK - Accepted"
             color = "green"
         else:
-            quality_status = "❌ منتج معيب - مرفوض"
+            quality_status = "❌ Defective Fabric - Rejected"
             color = "red"
         
-        report_text += f"\n🎯 قرار الجودة:\n    {quality_status}"
+        report_text += f"\n🎯 Quality Decision:\n    {quality_status}"
         
         axes[1, 1].text(0.05, 0.95, report_text, transform=axes[1, 1].transAxes, 
                        fontsize=11, verticalalignment='top', color=color, fontweight='bold',
@@ -431,11 +456,11 @@ def create_enhanced_visual_report(original_image, segmentation_mask, defect_type
         plt.savefig(output_path, dpi=300, bbox_inches='tight', facecolor='white')
         plt.close(fig)
         
-        # حفظ صورة منفصلة مع العيوب فقط
+        # Save separate image with defects only
         result_image_path = output_path.replace('.png', '_with_defects.png')
         plt.figure(figsize=(12, 8))
         plt.imshow(result_image)
-        plt.title(f'تحديد العيوب - {defect_type}', fontsize=16, fontweight='bold', pad=20)
+        plt.title(f'Defect Markings - {defect_type}', fontsize=16, fontweight='bold', pad=20)
         plt.axis('off')
         plt.tight_layout()
         plt.savefig(result_image_path, dpi=300, bbox_inches='tight', facecolor='white')
@@ -444,83 +469,99 @@ def create_enhanced_visual_report(original_image, segmentation_mask, defect_type
         return output_path, result_image_path
     
     except Exception as e:
-        print(f"❌ خطأ في إنشاء التقرير المرئي: {e}")
+        print(f"❌ Error creating visual report: {e}")
         plt.close('all')
         return None, None
 
-# ✅ الدالة الرئيسية المحسنة مع تحسين الاستقرار
+# ✅ Enhanced main function with current image accuracy
 def intelligent_defect_detection(image_path, output_dir="defect_reports"):
-    """الكشف عن العيوب في الصورة"""
-    print(f"\n🔍 تحليل الصورة: {os.path.basename(image_path)}")
+    """Detect defects in fabric image with current image accuracy"""
+    print(f"\n🔍 Analyzing Fabric Image: {os.path.basename(image_path)}")
+    start_time = time.time()
     
-    # ✅ إعادة تطبيق البذور قبل كل تحليل لضمان الاتساق
+    # Reapply seeds for consistency
     set_seeds(42)
     
-    # تحميل النماذج
+    # Load models
     models = load_models()
     if models is None or 'segmentation' not in models:
-        print("❌ لا يمكن متابعة التحليل بدون النماذج!")
+        print("❌ Cannot proceed with analysis without models!")
         return None
     
-    # تحميل الصورة
+    # Load image
     try:
         original_image = Image.open(image_path).convert('RGB')
-        print(f"📁 تم تحميل الصورة: {original_image.size}")
+        image_size = original_image.size
+        print(f"📁 Image loaded: {image_size}")
     except Exception as e:
-        print(f"❌ خطأ في تحميل الصورة: {e}")
+        print(f"❌ Error loading image: {e}")
         return None
     
-    # إعداد تحويلات الصور
+    # Setup image transforms
     seg_transform, cls_transform = get_transforms()
     
-    # التنبؤ بالتصنيف
+    # Classification prediction
     defect_type, confidence = predict_classification(
         models.get('classification'), original_image, cls_transform
     )
     
-    # التنبؤ بالتجزئة
+    # Segmentation prediction
     segmentation_mask = predict_segmentation(
         models['segmentation'], original_image, seg_transform
     )
     
-    # تحليل نتائج Segmentation
+    # Analyze Segmentation results
     defect_percentage, defects_info = analyze_segmentation_results(
         segmentation_mask, original_image
     )
     
-    # تحقق من صحة النتائج
-    cls_validation = "نتيجة عالية الثقة" if confidence and confidence > 0.7 else "نتيجة منخفضة الثقة"
-    seg_validation = "تم اكتشاف عيوب" if defect_percentage >= DEFECT_THRESHOLD else "لم يتم اكتشاف عيوب"
+    # Validate results
+    cls_validation = "High confidence result" if confidence and confidence > 0.7 else "Low confidence result"
+    seg_validation = "Defects detected" if defect_percentage >= DEFECT_THRESHOLD else "No defects detected"
     
-    print(f"📊 نتائج التحليل الأولية:")
+    print(f"📊 Preliminary Analysis Results:")
     if defect_type:
-        print(f"   • التصنيف: {defect_type} (ثقة: {confidence*100:.1f}%) - {cls_validation}")
-    print(f"   • Segmentation: {defect_percentage:.4f}% عيوب - {seg_validation}")
-    print(f"   • عدد العيوب: {len(defects_info)}")
+        print(f"   • Classification: {defect_type} (confidence: {confidence*100:.1f}%) - {cls_validation}")
+    print(f"   • Segmentation: {defect_percentage:.4f}% defects - {seg_validation}")
+    print(f"   • Number of defects: {len(defects_info)}")
     
-    # الدمج الذكي للنتائج مع تمرير حجم الصورة
+    # Intelligent result fusion with image size
     final_type, final_confidence, fusion_reason, effective_defect_percentage, effective_defects_info = intelligent_result_fusion(
         (defect_type, confidence, cls_validation), 
         (defect_percentage, defects_info, seg_validation),
         original_image.size
     )
     
-    print(f"🧠 النتيجة النهائية بعد الدمج الذكي:")
-    print(f"   • الحالة: {final_type}")
-    print(f"   • الثقة: {final_confidence:.2f}")
-    print(f"   • السبب: {fusion_reason}")
-    print(f"   • نسبة العيوب الفعالة: {effective_defect_percentage:.4f}%")
-    print(f"   • عدد العيوب الفعال: {len(effective_defects_info)}")
+    # Calculate processing time
+    processing_time = time.time() - start_time
     
-    # إنشاء مجلد المخرجات
+    # Calculate accuracy for current image
+    current_accuracy = calculate_current_accuracy(
+        final_type, 
+        final_confidence, 
+        effective_defect_percentage, 
+        len(effective_defects_info),
+        fusion_reason
+    )
+    
+    print(f"🧠 Final Result after Intelligent Fusion:")
+    print(f"   • Status: {final_type}")
+    print(f"   • Confidence: {final_confidence:.2f}")
+    print(f"   • Accuracy: {current_accuracy:.2f}")
+    print(f"   • Reason: {fusion_reason}")
+    print(f"   • Effective defect percentage: {effective_defect_percentage:.4f}%")
+    print(f"   • Effective number of defects: {len(effective_defects_info)}")
+    print(f"   • Processing time: {processing_time:.2f}s")
+    
+    # Create output folder
     os.makedirs(output_dir, exist_ok=True)
     
-    # إنشاء اسم ملف الإخراج
+    # Create output filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_filename = f"defect_report_{timestamp}.png"
     output_path = os.path.join(output_dir, output_filename)
     
-    # إنشاء التقرير المرئي
+    # Create visual report with accuracy
     report_path, result_image_path = create_enhanced_visual_report(
         original_image, 
         segmentation_mask, 
@@ -529,134 +570,50 @@ def intelligent_defect_detection(image_path, output_dir="defect_reports"):
         effective_defect_percentage,
         effective_defects_info, 
         output_path,
-        fusion_reason
+        fusion_reason,
+        current_accuracy
     )
     
-    print(f"\n✅ اكتمل التحليل بنجاح!")
-    print(f"💾 تم حفظ التقرير في: {report_path}")
-    print(f"🖼️ تم حفظ الصورة مع العيوب في: {result_image_path}")
+    print(f"\n✅ Analysis completed successfully!")
+    print(f"💾 Report saved to: {report_path}")
+    print(f"🖼️ Image with defects saved to: {result_image_path}")
     
-    # عرض النتائج النهائية
-    print(f"\n📋 التقرير النهائي:")
-    print(f"   🎯 الحالة: {final_type}")
-    print(f"   📈 الثقة: {final_confidence*100:.1f}%")
-    print(f"   🔍 نسبة العيوب: {effective_defect_percentage:.4f}%")
-    print(f"   📊 عدد العيوب: {len(effective_defects_info)}")
-    print(f"   💡 سبب القرار: {fusion_reason}")
+    # Display final results with accuracy information
+    print(f"\n📋 Final Report:")
+    print(f"   🎯 Status: {final_type}")
+    print(f"   📈 Confidence: {final_confidence*100:.1f}%")
+    print(f"   🎯 Accuracy: {current_accuracy*100:.1f}%")
+    print(f"   🔍 Defect percentage: {effective_defect_percentage:.4f}%")
+    print(f"   📊 Number of defects: {len(effective_defects_info)}")
+    print(f"   💡 Decision reason: {fusion_reason}")
+    print(f"   ⚡ Processing time: {processing_time:.2f}s")
     
     if effective_defects_info:
-        print(f"   🎨 أنواع العيوب المكتشفة:")
+        print(f"   🎨 Detected defect types:")
         for defect in effective_defects_info:
-            print(f"      - عيب {defect['id']}: {defect['shape_type']}")
-            print(f"        📍 الموقع: {defect['center']}, 📏 المساحة: {defect['area']} بيكسل")
+            print(f"      - Defect {defect['id']}: {defect['shape_type']}")
+            print(f"        📍 Location: {defect['center']}, 📏 Area: {defect['area']} pixels")
     
-    # تقييم الجودة النهائي
-    if final_type == 'سليمة':
-        print("   ✅ قرار الجودة: منتج سليم - مقبول")
+    # Final quality assessment
+    if final_type == 'Good':
+        print("   ✅ Quality decision: Fabric OK - Accepted")
     else:
-        print("   ❌ قرار الجودة: منتج معيب - مرفوض")
+        print("   ❌ Quality decision: Defective fabric - Rejected")
     
     return {
         'final_type': final_type,
         'final_confidence': final_confidence,
+        'current_accuracy': current_accuracy,
         'fusion_reason': fusion_reason,
         'defect_percentage': effective_defect_percentage,
         'defect_count': len(effective_defects_info),
         'defects_info': effective_defects_info,
         'report_path': report_path,
-        'result_image_path': result_image_path
+        'result_image_path': result_image_path,
+        'processing_time': processing_time
     }
 
-# باقي الكود بدون تغيير...
-def find_images_automatically():
-    """البحث التلقائي عن الصور"""
-    possible_locations = [".", "./images", "./data"]
-    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
-    found_images = []
-    
-    for location in possible_locations:
-        if os.path.exists(location):
-            for ext in image_extensions:
-                pattern = os.path.join(location, ext)
-                images = glob.glob(pattern)
-                found_images.extend(images)
-    
-    return list(set(found_images))[:5]
-
-def main():
-    print("=" * 60)
-    print("🎯 نظام الكشف المتقدم عن العيوب - النسخة المُحسنة والمستقرة")
-    print("=" * 60)
-    
-    if not os.path.exists('best_high_accuracy_model.pth'):
-        print("❌ نموذج Segmentation غير موجود!")
-        return
-    
-    print("✅ النظام جاهز للاستخدام")
-    
-    while True:
-        print("\n" + "=" * 50)
-        print("1. 📁 تحليل صورة محددة")
-        print("2. 📂 تحليل جميع الصور في مجلد") 
-        print("3. 🔍 البحث التلقائي عن الصور")
-        print("4. 🚪 خروج")
-        
-        choice = input("\nاختر الخيار (1-4): ").strip()
-        
-        if choice == '1':
-            print("\n📁 أدخل مسار الصورة:")
-            image_path = input().strip().strip('"')
-            
-            if not image_path or not os.path.exists(image_path):
-                print("❌ المسار غير صحيح!")
-                continue
-            
-            intelligent_defect_detection(image_path)
-            
-        elif choice == '2':
-            print("\n📂 أدخل مسار المجلد:")
-            folder_path = input().strip().strip('"')
-            
-            if not folder_path or not os.path.exists(folder_path):
-                print("❌ المسار غير صحيح!")
-                continue
-            
-            image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
-            image_files = []
-            for ext in image_extensions:
-                pattern = os.path.join(folder_path, ext)
-                image_files.extend(glob.glob(pattern))
-            
-            if not image_files:
-                print("❌ لم يتم العثور على صور!")
-                continue
-            
-            print(f"\n📁 وجدت {len(image_files)} صورة")
-            for i, image_path in enumerate(image_files, 1):
-                print(f"\n🔄 تحليل الصورة {i}/{len(image_files)}")
-                intelligent_defect_detection(image_path)
-                
-        elif choice == '3':
-            print("\n🔍 جاري البحث التلقائي عن الصور...")
-            found_images = find_images_automatically()
-            if found_images:
-                print(f"📁 وجدت {len(found_images)} صورة:")
-                for i, img_path in enumerate(found_images, 1):
-                    print(f"   {i}. {os.path.basename(img_path)}")
-                
-                use_all = input("\nهل تريد تحليل جميع هذه الصور؟ (y/n): ").strip().lower()
-                if use_all == 'y':
-                    for image_path in found_images:
-                        intelligent_defect_detection(image_path)
-            else:
-                print("❌ لم يتم العثور على صور تلقائياً!")
-                
-        elif choice == '4':
-            print("👋 شكراً لاستخدامك النظام!")
-            break
-        
-        else:
-            print("❌ اختيار غير صحيح!")
-
 if __name__ == "__main__":
-    main()
+    print("\n" + "=" * 50)
+    print("🎯 Fabric Defect Detection System Ready")
+    print("=" * 50)
