@@ -11,6 +11,8 @@
 - 🔌 واجهة برمجة (API)
 
 ## ⚙️ التثبيت
+https://drive.google.com/file/d/14M0g-HvOrX2UHvqnSEvnKSMWhSMr8Pg6/view?usp=sharing(best_high_accurcy.pth)
+https://drive.google.com/file/d/1Rb1kcf0Uyak2FtW3iqHr7dN2B9Rpm8KR/view?usp=drive_link(best_classification_model)
 
 ```bash
 # استنساخ المشروع
