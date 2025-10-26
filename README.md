@@ -9,7 +9,9 @@
 - 📊 تقارير بصرية مفصلة
 - 🌐 واجهة ويب متكاملة
 - 🔌 واجهة برمجة (API)
-
+to get the training model
+  operate train.ipynb code
+  or get the model from these links
 ## ⚙️ التثبيت
 https://drive.google.com/file/d/14M0g-HvOrX2UHvqnSEvnKSMWhSMr8Pg6/view?usp=sharing(best_high_accurcy.pth)
 https://drive.google.com/file/d/1Rb1kcf0Uyak2FtW3iqHr7dN2B9Rpm8KR/view?usp=drive_link(best_classification_model)
@@ -21,6 +23,5 @@ cd defect-detection-system
 
 # تثبيت المتطلبات
 pip install -r requirements.txt# defect-detection-web
-"# defect-detection-web" 
-"# defect-detection-web" 
-"# defect-detection-web" 
+
+to open api code open app. py and write in new terminal pythonapp.py
